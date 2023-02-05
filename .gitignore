@@ -155,3 +155,4 @@ fabric.properties
 
 # vscode
 .vscode/
+bppy/model/test.py
