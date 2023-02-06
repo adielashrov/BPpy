@@ -30,7 +30,7 @@ def b_modifier(func):
 def move_forward():
     i = 0
     while i < 3:
-        yield {request: BEvent("Accelerate", {'speed':5})}
+        yield {request: BEvent("Accelerate", {'speed':5}), block: BEvent("TurnRight", {'angle': 20})}
         i = i + 1
 
 @b_thread
@@ -48,8 +48,9 @@ def modify_proxy():
 def modify():
     i = 0
     while i < 3:
-        lastEvent = yield {o_request: BEvent("Accelerate", {'speed': 5})}
-        print("modify observed event", lastEvent)
+        lastEvent = yield {o_request: BEvent("Accelerate", {'speed': 5}),
+                           o_block: BEvent("TurnRight", {'speed': 5})}
+        print("modify was notified on event", lastEvent)
         i = i + 1
 
 if __name__ == "__main__":

@@ -53,17 +53,23 @@ class BProgram:
                                           observed_b_events=None):
         return True
 
-    def extract_m_events(self, tickets, event):
-        observed_r_events, observed_b_events = [],[]
-        for ticket in tickets:
-            if self.event_selection_strategy.is_observed_requested(event, ticket):
-                observed_r_events.append(event)
+    def extract_declared_events(self):
+        requested_events, blocked_events, observed_r_events, observed_b_events = self.event_selection_strategy.collect_declared_events(self.tickets)
+        print("requested_events:", requested_events)
+        print("blocked_events:", blocked_events)
+        print("observed_r_events:", observed_r_events)
+        print("observed_b_events:", observed_b_events)
+        return requested_events, blocked_events, observed_r_events, observed_b_events
 
-        return observed_r_events, observed_b_events
+    def should_notify_modifier(self, requested_events, observed_r_events):
+        requested_and_observed_r_intersect = requested_events.intersection(observed_r_events)
+        if len(requested_and_observed_r_intersect):
+            return True
+        return False
 
-
-        # TODO: should be observed_r_events and observed_b_events
-        return [],[]
+    #TODO: continue here
+    def advance_modifier(self,observed_r_events):
+        pass
 
     def run(self):
         if self.listener:
@@ -88,11 +94,9 @@ class BProgram:
 
             # Check if there is a modifier b_thread
             if self.modifier:
-                observed_r_events, observed_b_events = self.extract_m_events(
-                                                            self.tickets,
-                                                            event)
-                print("observed_r_events",observed_r_events)
-                # self.check_if_event_should_be_modified(observed_r_events, observed_b_events)
+                requested_events, blocked_events, observed_r_events, observed_b_events = self.extract_declared_events()
+                if self.should_notify_modifier(requested_events, observed_r_events):
+                    self.advance_modifier(observed_r_events)
 
             # notify the listener
             if self.listener:
