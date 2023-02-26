@@ -19,6 +19,13 @@ class ModifierEventSelectionStrategy(EventSelectionStrategy):
                 raise TypeError(
                     sync_statement + "parameter should be BEvent or iterable")
 
+    def collect_modified_event(self, statements):
+        mod_event = set()
+        for statement in statements:
+            self.collect_sync_statement(mod_event, statement,
+                                    mod_event)
+        return mod_event
+
     # TODO: note that we need to support/implement collect_observed_events
     #  for all event selection strategies
     def collect_declared_events(self, statements):
