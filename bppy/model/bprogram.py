@@ -31,7 +31,7 @@ class BProgram:
         if self.modifier:
             self.tickets_modifier = [{'bt': modifier} for modifier in self.modifier]
             print("self.advance_modifier for the First time with None")
-            self.advance_modifier(None)
+            self.advance_modifier(self.tickets_modifier, None)
 
     # TODO: meaningful names
     def advance_bthreads(self,tickets, m):
@@ -58,26 +58,25 @@ class BProgram:
 
 
     # TODO: Add here, mention to blocked events
-    def advance_modifier(self, t_event=None, observed_r_events=None, observed_b_events=None):
-        if self.modifier:
-            for ticket in self.tickets_modifier:
-                try:
-                    bt = ticket['bt']
-                    ll = None
-                    if observed_r_events:
-                        observed_events = {'observed_r_events': observed_r_events,
-                                'observed_b_events': observed_b_events}
-                        ll = bt.send(observed_events)
-                    elif t_event is None or self.event_selection_strategy.is_satisfied(
-                            t_event, ticket):
-                        ll = bt.send(t_event)
-                    if ll is None:
-                        continue
-                    ticket.clear()
-                    ticket.update(ll)
-                    ticket.update({'bt': bt})
-                except (KeyError, StopIteration):
-                    pass
+    def advance_modifier(self, tickets, t_event=None, observed_r_events=None, observed_b_events=None):
+        for ticket in tickets:
+            try:
+                bt = ticket['bt']
+                ll = None
+                if observed_r_events: # TODO: this check might need more cases
+                    modify_arguments = {'selected_event': t_event, 'observed_r_events': observed_r_events,
+                            'observed_b_events': observed_b_events}
+                    ll = bt.send(modify_arguments)
+                elif t_event is None or self.event_selection_strategy.is_satisfied(
+                        t_event, ticket):
+                    ll = bt.send(t_event)
+                if ll is None:
+                    continue
+                ticket.clear()
+                ticket.update(ll)
+                ticket.update({'bt': bt})
+            except (KeyError, StopIteration):
+                pass
 
     def add_bthread(self,bt):
         self.new_bt.append(bt)
@@ -97,12 +96,10 @@ class BProgram:
         print("observed_b_events:", observed_b_events)
         return requested_events, blocked_events, observed_r_events, observed_b_events
 
-    def extract_modified_event(self):
-        m_event = self.event_selection_strategy.collect_modified_event(self.tickets_modifier)
-        return m_event
 
-    def should_notify_modifier(self, requested_events, observed_r_events):
-        return False
+    def extract_modified_event(self):
+        m_event = self.event_selection_strategy.get_modified_event(self.tickets_modifier)
+        return m_event
 
     def advance_dynamic_bthreads_to_first_bsync(self):
         # for dynamic adding new bthreads
@@ -126,14 +123,13 @@ class BProgram:
             self.advance_dynamic_bthreads_to_first_bsync()
 
             # Selecting an event which is requested and not blocked
-            event = self.next_event()
-            print(f"Selected event at sync point: {event}")
+            selected_event = self.next_event()
+            print(f"Selected event at sync point: {selected_event}")
             # Finish the program if no event is selected
-            if event is None:
+            if selected_event is None:
                 break
 
-            # If the modifier thread is interested in the currently
-            # requested events
+            # Modifier thread is interested in the currently requested events
             modified = False
             if self.modifier:
                 requested_events, blocked_events, observed_r_events, observed_b_events = self.extract_declared_events()
@@ -141,32 +137,35 @@ class BProgram:
                 #  synchronization point - there is no modify declaration.
                 if self.should_notify_modifier(requested_events,
                                                observed_r_events):
-                    self.advance_modifier(observed_r_events = observed_r_events,
+                    self.advance_modifier(self.tickets_modifier,
+                                          t_event=selected_event,
+                                          observed_r_events = observed_r_events,
                                           observed_b_events = observed_b_events)
-                    event = self.extract_modified_event()
-                    print(f"bprogram->modified event: {event}")
+                    selected_event = self.extract_modified_event()
+                    print(f"bprogram->modified event: {selected_event}")
                     # Finish the program if modifier returned an empty set
-                    if event is None:
+                    if selected_event is None:
                         print("Modifier scenario returned an empty set.")
                         break
                     else:
                         modified = True
 
-            # notify the listener on the triggered event
+            # notify the listener on the selected event
             if self.listener:
                 interrupted = self.listener.event_selected(b_program=self,
-                                                           event=event)
+                                                           event=selected_event)
 
             # We attempt to promote the modifier thread if the
             # event was not modified at sync point
             if self.modifier:
                 if modified: # if the event was modified, promote modifier to next sync
-                    self.advance_modifier(t_event=None)
+                    print(f"Advancing modifier after modification.")
+                    self.advance_modifier(self.tickets_modifier, t_event=selected_event)
                 else: # No modification-> advance the modifier similar to regular bThreads
-                    print(f"advancing modifier with event:{event}")
-                    self.advance_modifier(t_event=event)
+                    print(f"Advancing modifier with event:{selected_event}")
+                    self.advance_modifier(self.tickets_modifier, t_event=selected_event)
 
-            self.advance_bthreads(self.tickets, event)
+            self.advance_bthreads(self.tickets, selected_event)
 
         if self.listener:
             self.listener.ended(b_program=self)

@@ -19,12 +19,25 @@ class ModifierEventSelectionStrategy(EventSelectionStrategy):
                 raise TypeError(
                     sync_statement + "parameter should be BEvent or iterable")
 
-    def collect_modified_event(self, statements):
-        mod_event = set()
+    def get_modified_event(self, statements):
+        m_event = None
+        event_set = set()
         for statement in statements:
-            self.collect_sync_statement(mod_event, statement,
-                                    mod_event)
-        return mod_event
+            if mod_event in statement:  # should be eligible for sets
+                if isinstance(statement[mod_event], Iterable):
+                    event_set.update(statement[mod_event])
+                elif isinstance(statement[mod_event], BEvent):
+                    event_set.add(statement[mod_event])
+                else:
+                    raise TypeError(
+                        mod_event + "parameter should be BEvent or iterable")
+
+        if len(event_set) == 1:
+            m_event = list(event_set)[0]
+        elif len(event_set) != 0:
+            print(f"event_set size should be 1 or 0: set:{event_set}, size: {len(event_set)} ")
+        return m_event
+
 
     # TODO: note that we need to support/implement collect_observed_events
     #  for all event selection strategies
