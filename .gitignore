@@ -156,3 +156,4 @@ fabric.properties
 # vscode
 .vscode/
 bppy/model/test.py
+/side_branch_based_on_bppy.txt
