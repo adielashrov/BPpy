@@ -16,6 +16,7 @@ class BProgram:
         self.variables = None
         self.tickets = []
         self.external_events_queue = []
+        self.found_solution = False
 
     def setup(self):
         if self.source_name:
@@ -49,6 +50,7 @@ class BProgram:
         return self.event_selection_strategy.select(self.tickets, self.external_events_queue)
 
     def run(self):
+        found_solution = False
         if self.listener:
             self.listener.starting(b_program=self)
 
@@ -68,6 +70,7 @@ class BProgram:
             if event is None:
                 break
             if self.listener:
+                self.found_solution = True
                 interrupted = self.listener.event_selected(b_program=self, event=event)
 
             self.advance_bthreads(self.tickets,event)
@@ -78,3 +81,6 @@ class BProgram:
 
     def enqueue_external_event(self, event):
         self.external_events_queue.append(event)
+
+    def get_found_solution(self):
+        return self.found_solution

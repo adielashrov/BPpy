@@ -1,3 +1,4 @@
+from math import sqrt
 from bppy import *
 
 
@@ -15,7 +16,14 @@ def z3_example():
     # Third example
     solve([x>=0, x<=4.546, y>=0, y<=10, y < x-3, y>(4.5-0.65*x)])
 
+
 def z3_example_2():
+    s = SolverFor("QF_NRA")
+    x, y = Reals('x y')
+    solve([x ** 2 + y ** 2 <= 1, -1.5*y <= 0.5*sqrt(3)*(x-1)])
+    # print(s.check())
+
+def z3__int_example_2():
     x, y = Ints('x y')
     s = Solver()
     s.add((x % 4) + 3 * (y / 2) > x - y)
@@ -25,9 +33,8 @@ def z3_example_2():
 def x_range():
     x_range_constraint = And( x>=0, x<=10 )
     for i in range(3):
-        # yield {request: x_range_constraint}
         yield { block: Not(And( x>=0, x<=10 ))}
-# bug here - ? Strange
+
 @b_thread
 def y_range():
     y_range_constraint = And(y >= 0, y <= 10)
@@ -59,8 +66,10 @@ def x_small_const():
 
 if __name__ == "__main__":
     # z3_example()
-    b_program = BProgram(bthreads=[x_range(), y_range(), y_small_x(),
-                                   y_large_x(), x_small_const()],
-                         event_selection_strategy=SMTEventSelectionStrategy(),
-                         listener=PrintBProgramRunnerListener())
-    b_program.run()
+    z3_example_2()
+
+    #b_program = BProgram(bthreads=[x_range(), y_range(), y_small_x(),
+    #                               y_large_x(), x_small_const()],
+    #                     event_selection_strategy=SMTEventSelectionStrategy(),
+    #                     listener=PrintBProgramRunnerListener())
+    #b_program.run()
