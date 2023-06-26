@@ -4,7 +4,8 @@ from bppy.execution.listeners.b_program_runner_listener import BProgramRunnerLis
 class PrintBProgramRunnerListener(BProgramRunnerListener):
 
     def starting(self, b_program):
-        print("STARTED")
+        # print("STARTED")
+        pass
 
     def started(self, b_program):
         pass
@@ -13,7 +14,8 @@ class PrintBProgramRunnerListener(BProgramRunnerListener):
         pass
 
     def ended(self, b_program):
-        print("ENDED")
+        #print("ENDED")
+        pass
 
     def assertion_failed(self, b_program):
         pass
@@ -28,7 +30,8 @@ class PrintBProgramRunnerListener(BProgramRunnerListener):
         pass
 
     def event_selected(self, b_program, event):
-        print(event)
+        # print(event)
+        pass
 
     def halted(self, b_program):
         pass
