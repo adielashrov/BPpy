@@ -12,7 +12,12 @@ def b_thread(func):
                     m = yield e
                     if m is None:
                         break
-                except (KeyError, StopIteration):
+                except KeyError as ke:
+                    print(f"Caught KeyError exception")
+                    m = yield None
+                    break
+                except StopIteration as si:
+                    print(f"Caught StopIteration exception")
                     m = yield None
                     break
     return wrapper
