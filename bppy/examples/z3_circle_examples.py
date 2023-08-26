@@ -115,18 +115,19 @@ def x_below_x1_discrete(x1):
 
 def solver_based_example(num_edges=3, radius=1):
     global found_solution_solver
-    m, b = create_line_equation(n=num_edges, r=radius)
-    # print(f"num_edges = {num_edges}, radius = {radius}, m = {m}, b = {b}")
+    line_equations = create_all_line_equations(n=num_edges, r=radius)
+    b_threads_list = initialize_bthreads_list(line_equations, discrete_mode=False)
     b_program = BProgram(
-        bthreads=[x_above_top_line_solver(m, b), x_inside_circle_solver()],
-        event_selection_strategy=SMTEventSelectionStrategy(),
+        bthreads=b_threads_list,
+        event_selection_strategy=SimpleEventSelectionStrategy(),
         listener=PrintBProgramRunnerListener(),
     )
     b_program.run()
     found_solution_solver = b_program.get_found_solution()
+    print(f"Solver based example found solution:{found_solution_solver}")
 
 
-def initialize_bthreads_list(line_equations, delta_param=0.1):
+def initialize_bthreads_list(line_equations, delta_param=0.1, discrete_mode=True):
     b_threads_list = []
     for line_equation in line_equations:
         if line_equation.get_type() == "y":
@@ -155,7 +156,9 @@ def initialize_bthreads_list(line_equations, delta_param=0.1):
                 b_threads_list.append(x_below_x1_discrete(line_equation.get_x1()))
 
     b_threads_list.append(x_y_inside_circle_discrete())
-    b_threads_list.append(generate_events_scenario(line_equations, delta_param))
+    if discrete_mode:
+        b_threads_list.append(generate_events_scenario(line_equations, delta_param))
+
     return b_threads_list
 
 
@@ -170,7 +173,7 @@ def discrete_event_example(num_edges=3, radius=1, delta_param=0.1):
     )
     b_program.run()
     found_solution_discrete = b_program.get_found_solution()
-    print(f"Discrete event example found soluton:{found_solution_discrete}")
+    print(f"Discrete event example found solution:{found_solution_discrete}")
 
 
 def extend_setup_with_variables(setup, n, r, delta):
@@ -218,5 +221,6 @@ found_solution_solver = False
 
 
 if __name__ == "__main__":
-    discrete_event_example(3, 1, 0.1)
+    # discrete_event_example(3, 1, 0.001)
+    solver_based_example(3, 1)
     # run_experiment()
