@@ -1,0 +1,85 @@
+C:\Users\adiel\Documents\Research\BP_python\BPpy-bgu\BPpy\venv_pycharm\Scripts\python.exe C:\Users\adiel\Documents\Research\BP_python\BPpy-taxi\bppy\examples\bp_taxi.py 
+STARTED
+start_simulation, kick off the simulation, initial_obs:  (388, {'prob': 1.0, 'action_mask': array([1, 1, 0, 1, 0, 0], dtype=int8)})
+External(name=input_event,data={'state': (388, {'prob': 1.0, 'action_mask': array([1, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (3, 4, 2, 0)
+BEvent(name=output_event,data={'action': 4})
+actuator->received action:  Pickup
+External(name=input_event,data={'state': (388, -10, False, False, {'prob': 1.0, 'action_mask': array([1, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (3, 4, 2, 0)
+BEvent(name=output_event,data={'action': 5})
+actuator->received action:  Dropoff
+External(name=input_event,data={'state': (388, -10, False, False, {'prob': 1.0, 'action_mask': array([1, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (3, 4, 2, 0)
+BEvent(name=output_event,data={'action': 5})
+actuator->received action:  Dropoff
+External(name=input_event,data={'state': (388, -10, False, False, {'prob': 1.0, 'action_mask': array([1, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (3, 4, 2, 0)
+BEvent(name=output_event,data={'action': 0})
+actuator->received action:  Down
+External(name=input_event,data={'state': (488, -1, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 4, 2, 0)
+BEvent(name=output_event,data={'action': 4})
+actuator->received action:  Pickup
+External(name=input_event,data={'state': (488, -10, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 4, 2, 0)
+BEvent(name=output_event,data={'action': 4})
+actuator->received action:  Pickup
+External(name=input_event,data={'state': (488, -10, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 4, 2, 0)
+BEvent(name=output_event,data={'action': 4})
+actuator->received action:  Pickup
+External(name=input_event,data={'state': (488, -10, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 4, 2, 0)
+BEvent(name=output_event,data={'action': 0})
+actuator->received action:  Down
+External(name=input_event,data={'state': (488, -1, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 4, 2, 0)
+BEvent(name=output_event,data={'action': 0})
+actuator->received action:  Down
+External(name=input_event,data={'state': (488, -1, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 4, 2, 0)
+BEvent(name=output_event,data={'action': 0})
+actuator->received action:  Down
+External(name=input_event,data={'state': (488, -1, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 4, 2, 0)
+BEvent(name=output_event,data={'action': 3})
+actuator->received action:  Left
+External(name=input_event,data={'state': (468, -1, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 1, 0, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 3, 2, 0)
+BEvent(name=output_event,data={'action': 0})
+actuator->received action:  Down
+External(name=input_event,data={'state': (468, -1, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 1, 0, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 3, 2, 0)
+BEvent(name=output_event,data={'action': 2})
+actuator->received action:  Right
+External(name=input_event,data={'state': (488, -1, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 4, 2, 0)
+BEvent(name=output_event,data={'action': 4})
+actuator->received action:  Pickup
+External(name=input_event,data={'state': (488, -10, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 4, 2, 0)
+BEvent(name=output_event,data={'action': 0})
+actuator->received action:  Down
+External(name=input_event,data={'state': (488, -1, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 4, 2, 0)
+BEvent(name=output_event,data={'action': 2})
+actuator->received action:  Right
+External(name=input_event,data={'state': (488, -1, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 0, 1, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 4, 2, 0)
+BEvent(name=output_event,data={'action': 3})
+actuator->received action:  Left
+External(name=input_event,data={'state': (468, -1, False, False, {'prob': 1.0, 'action_mask': array([0, 1, 1, 0, 0, 0], dtype=int8)})})
+odnn->current state taxi_row, taxi_col, passenger_location, destination:  (4, 3, 2, 0)
+Traceback (most recent call last):
+  File "C:\Users\adiel\Documents\Research\BP_python\BPpy-taxi\bppy\examples\bp_taxi.py", line 124, in <module>
+    b_program.run()
+  File "C:\Users\adiel\Documents\Research\BP_python\BPpy-taxi\bppy\model\bprogram.py", line 73, in run
+    self.advance_bthreads(self.tickets,event)
+  File "C:\Users\adiel\Documents\Research\BP_python\BPpy-taxi\bppy\model\bprogram.py", line 37, in advance_bthreads
+    ll = bt.send(m)
+  File "C:\Users\adiel\Documents\Research\BP_python\BPpy-taxi\bppy\examples\bp_taxi.py", line 111, in odnn
+    sleep(1)
+KeyboardInterrupt
+
+Process finished with exit code -1073741510 (0xC000013A: interrupted by Ctrl+C)
