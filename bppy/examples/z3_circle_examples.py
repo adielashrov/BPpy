@@ -44,24 +44,59 @@ def check_equations(point, line_equations):
 def print_solution(str, event, m, b):
     solution_x = event[x].as_fraction()
     solution_y = event[y].as_fraction()
-    # print(f"{str} = {float(solution_x)}, y = {float(solution_y)}")
-    check_equations(solution_x, solution_y, m, b)
+    print(f"{str} = {float(solution_x)}, y = {float(solution_y)}")
+    # check_equations(solution_x, solution_y, m, b)
 
 
 # Whatever is in block will be negated and added to the solver
+# TODO: refactor the names of the bthreads
 @b_thread
-def x_above_top_line_solver(m, b):
-    x_below_top_line = And(y <= m * x + b)
-    for i in range(1):
-        last_event = yield {request: true, block: x_below_top_line}
-        # print_solution("solution", last_event, m, b)
+def y_above_top_line_solver(m, b):
+    print(f"y_above_top_line_solver: m={m}, b={b}")
+    y_above_top_line_solver = And(y > m * x + b)
+    yield {request: y_above_top_line_solver}
 
 
 @b_thread
-def x_inside_circle_solver():
+def y_below_line_solver(m, b):
+    print(f"x_y_below_line_solver: m={m}, b={b}")
+    y_below_line_solver = And(y < m * x + b)
+    yield {request: y_below_line_solver}
+
+
+@b_thread
+def y_above_b_solver(b):
+    print(f"y_above_b_solver: b={b}")
+    y_above_b = And(y > b)
+    yield {request: y_above_b}
+
+
+@b_thread
+def y_below_b_solver(b):
+    print(f"y_below_b_solver: b={b}")
+    y_below_b = And(y < b)
+    yield {request: y_below_b}
+
+
+@b_thread
+def x_above_x1_solver(x1):
+    print(f"x_above_x1_solver: x1={x1}")
+    x_above_x1 = And(x > x1)
+    yield {request: x_above_x1}
+
+
+@b_thread
+def x_below_x1_solver(x1):
+    print(f"x_below_x1_solver: x1={x1}")
+    # x_below_x1 = And(x >= x1)
+    x_below_x1 = And(x < x1)
+    yield {request: x_below_x1}
+
+
+@b_thread
+def x_y_inside_circle_solver():
     x_outside_of_circle = And(x ** 2 + y ** 2 >= 1)
-    for i in range(1):
-        last_event = yield {request: true, block: x_outside_of_circle}
+    yield {block: x_outside_of_circle}
 
 
 @b_thread
@@ -75,7 +110,7 @@ def generate_events_scenario(line_equations, delta_param):
         y = -1.0
         x += delta_param
     last_event = yield {request: requested_events}
-    check_equations(Point(last_event.data["x"], last_event.data["y"]), line_equations)
+    # check_equations(Point(last_event.data["x"], last_event.data["y"]), line_equations)
 
 
 @b_thread
@@ -85,32 +120,32 @@ def x_y_inside_circle_discrete():
 
 @b_thread
 def x_y_above_line_discrete(m, b):
-    yield {block: EventSet(lambda e: e.data["y"] <= m * e.data["x"] + b)}
+    yield {request: EventSet(lambda e: e.data["y"] > m * e.data["x"] + b)}
 
 
 @b_thread
 def x_y_below_line_discrete(m, b):
-    yield {block: EventSet(lambda e: e.data["y"] >= m * e.data["x"] + b)}
+    yield {request: EventSet(lambda e: e.data["y"] < m * e.data["x"] + b)}
 
 
 @b_thread
 def y_above_b_discrete(b):
-    yield {block: EventSet(lambda e: e.data["y"] <= b)}
+    yield {request: EventSet(lambda e: e.data["y"] > b)}
 
 
 @b_thread
 def y_below_b_discrete(b):
-    yield {block: EventSet(lambda e: e.data["y"] >= b)}
+    yield {request: EventSet(lambda e: e.data["y"] < b)}
 
 
 @b_thread
 def x_above_x1_discrete(x1):
-    yield {block: EventSet(lambda e: e.data["x"] <= x1)}
+    yield {request: EventSet(lambda e: e.data["x"] > x1)}
 
 
 @b_thread
 def x_below_x1_discrete(x1):
-    yield {block: EventSet(lambda e: e.data["x"] >= x1)}
+    yield {request: EventSet(lambda e: e.data["x"] < x1)}
 
 
 def solver_based_example(num_edges=3, radius=1):
@@ -119,7 +154,7 @@ def solver_based_example(num_edges=3, radius=1):
     b_threads_list = initialize_bthreads_list(line_equations, discrete_mode=False)
     b_program = BProgram(
         bthreads=b_threads_list,
-        event_selection_strategy=SimpleEventSelectionStrategy(),
+        event_selection_strategy=SMTEventSelectionStrategy(),
         listener=PrintBProgramRunnerListener(),
     )
     b_program.run()
@@ -133,29 +168,59 @@ def initialize_bthreads_list(line_equations, delta_param=0.1, discrete_mode=True
         if line_equation.get_type() == "y":
             if is_almost_zero(line_equation.get_m()):
                 if line_equation.get_b() >= 0:
-                    b_threads_list.append(y_above_b_discrete(line_equation.get_b()))
+                    if discrete_mode:
+                        b_threads_list.append(y_above_b_discrete(line_equation.get_b()))
+                    else:
+                        b_threads_list.append(y_above_b_solver(line_equation.get_b()))
                 else:
-                    b_threads_list.append(y_below_b_discrete(line_equation.get_b()))
+                    if discrete_mode:
+                        b_threads_list.append(y_below_b_discrete(line_equation.get_b()))
+                    else:
+                        b_threads_list.append(y_below_b_solver(line_equation.get_b()))
             else:  # M is not zero
                 if line_equation.get_m() < 0:
-                    b_threads_list.append(
-                        x_y_above_line_discrete(
-                            line_equation.get_m(), line_equation.get_b()
+                    if discrete_mode:
+                        b_threads_list.append(
+                            x_y_above_line_discrete(
+                                line_equation.get_m(), line_equation.get_b()
+                            )
                         )
-                    )
+                    else:
+                        b_threads_list.append(
+                            y_above_top_line_solver(
+                                line_equation.get_m(), line_equation.get_b()
+                            )
+                        )
                 else:  # M > 0
-                    b_threads_list.append(
-                        x_y_below_line_discrete(
-                            line_equation.get_m(), line_equation.get_b()
+                    if discrete_mode:
+                        b_threads_list.append(
+                            x_y_below_line_discrete(
+                                line_equation.get_m(), line_equation.get_b()
+                            )
                         )
-                    )
+                    else:
+                        b_threads_list.append(
+                            y_below_line_solver(
+                                line_equation.get_m(), line_equation.get_b()
+                            )
+                        )
         else:  # line_equation.get_type() == "x"
             if line_equation.get_x1() >= 0:
-                b_threads_list.append(x_above_x1_discrete(line_equation.get_x1()))
+                if discrete_mode:
+                    b_threads_list.append(x_above_x1_discrete(line_equation.get_x1()))
+                else:
+                    b_threads_list.append(x_above_x1_solver(line_equation.get_x1()))
             else:  # x1 < 0
-                b_threads_list.append(x_below_x1_discrete(line_equation.get_x1()))
+                if discrete_mode:
+                    b_threads_list.append(x_below_x1_discrete(line_equation.get_x1()))
+                else:
+                    b_threads_list.append(x_below_x1_solver(line_equation.get_x1()))
 
-    b_threads_list.append(x_y_inside_circle_discrete())
+    if discrete_mode:
+        b_threads_list.append(x_y_inside_circle_discrete())
+    else:
+        b_threads_list.append(x_y_inside_circle_solver())
+
     if discrete_mode:
         b_threads_list.append(generate_events_scenario(line_equations, delta_param))
 
