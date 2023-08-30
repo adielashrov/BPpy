@@ -61,7 +61,7 @@ if mode == "train":
     # Save the Q-table to a file using pickle
     np.save(q_table_name, q_table)
     print(f"saved q-table:{q_table_name}")
-else:
+else: # evaluation
     # Load the Q-table from the file
     q_table = np.load('11_31_29_08_2023_q_table.npy')
     # Evaluate the trained Q-table
