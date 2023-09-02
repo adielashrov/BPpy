@@ -100,7 +100,7 @@ def x_y_inside_circle_solver():
 
 
 @b_thread
-def generate_events_scenario(line_equations, delta_param):
+def generate_events_scenario(delta_param):
     requested_events = []
     x, y = -1.0, -1.0
     while x < 1.0:
@@ -110,17 +110,30 @@ def generate_events_scenario(line_equations, delta_param):
         y = -1.0
         x += delta_param
     last_event = yield {request: requested_events}
-    # check_equations(Point(last_event.data["x"], last_event.data["y"]), line_equations)
 
 
 @b_thread
 def x_y_inside_circle_discrete():
-    yield {block: EventSet(lambda e: e.data["x"] ** 2 + e.data["y"] ** 2 >= 1)}
+    x_outside_of_circle = EventSet(lambda e: e.data["x"] ** 2 + e.data["y"] ** 2 >= 1)
+    yield {block: x_outside_of_circle}
 
 
 @b_thread
-def x_y_above_line_discrete(m, b):
-    yield {request: EventSet(lambda e: e.data["y"] > m * e.data["x"] + b)}
+def y_above_top_line_discrete_with_bug(m, b):
+    print(f"y_above_top_line_discrete: m={m}, b={b}")
+    y_above_top_line_discrete = EventSet(lambda e: e.data["y"] > m * e.data["x"] + b)
+    if isinstance(y_above_top_line_discrete, Iterable):
+        print("y_above_top_line_discrete is iterable")
+    yield {request: y_above_top_line_discrete}
+
+
+@b_thread
+def y_above_top_line_discrete(m, b):
+    print(f"y_above_top_line_discrete: m={m}, b={b}")
+    y_below_top_line_discrete = EventSet(lambda e: e.data["y"] <= m * e.data["x"] + b)
+    if isinstance(y_below_top_line_discrete, Iterable):
+        print("y_below_top_line_discrete is iterable")
+    yield {block: y_below_top_line_discrete}
 
 
 @b_thread
@@ -181,7 +194,7 @@ def initialize_bthreads_list(line_equations, delta_param=0.1, discrete_mode=True
                 if line_equation.get_m() < 0:
                     if discrete_mode:
                         b_threads_list.append(
-                            x_y_above_line_discrete(
+                            y_above_top_line_discrete(
                                 line_equation.get_m(), line_equation.get_b()
                             )
                         )
@@ -222,7 +235,7 @@ def initialize_bthreads_list(line_equations, delta_param=0.1, discrete_mode=True
         b_threads_list.append(x_y_inside_circle_solver())
 
     if discrete_mode:
-        b_threads_list.append(generate_events_scenario(line_equations, delta_param))
+        b_threads_list.append(generate_events_scenario(delta_param))
 
     return b_threads_list
 
@@ -286,6 +299,6 @@ found_solution_solver = False
 
 
 if __name__ == "__main__":
-    # discrete_event_example(3, 1, 0.001)
-    solver_based_example(3, 1)
-    # run_experiment()
+    discrete_event_example(3, 1, 0.1)
+    # solver_based_example(3, 1)
+# run_experiment()
