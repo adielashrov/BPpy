@@ -3,10 +3,26 @@ from bppy import *
 from constraints_generation import *
 import timeit
 
+# Import libraries
+import matplotlib.pyplot as plt
+import numpy as np
+
 random.seed(42)
 x, y = Reals("x y")
 found_solution_discrete = False
 found_solution_solver = False
+
+x_y_events = []
+
+
+def generate_x_y_events(x_y_events, delta_param):
+    x, y = -1.0, -1.0
+    while x < 1.0:
+        while y < 1.0:
+            x_y_events.append(BEvent("set", {"x": x, "y": y}))
+            y += delta_param
+        y = -1.0
+        x += delta_param
 
 
 def z3_point_between_triangle_and_circle():
@@ -130,10 +146,12 @@ def y_above_top_line_discrete_with_bug(m, b):
 @b_thread
 def y_above_top_line_discrete(m, b):
     print(f"y_above_top_line_discrete: m={m}, b={b}")
-    y_below_top_line_discrete = EventSet(lambda e: e.data["y"] <= m * e.data["x"] + b)
-    if isinstance(y_below_top_line_discrete, Iterable):
-        print("y_below_top_line_discrete is iterable")
-    yield {block: y_below_top_line_discrete}
+    y_above_top_line_discrete = list(
+        filter(lambda e: e.data["y"] > (m * e.data["x"] + b), x_y_events)
+    )
+    if isinstance(y_above_top_line_discrete, Iterable):
+        print("y_above_top_line_discrete is iterable")
+    yield {request: y_above_top_line_discrete}
 
 
 @b_thread
@@ -143,7 +161,8 @@ def x_y_below_line_discrete(m, b):
 
 @b_thread
 def y_above_b_discrete(b):
-    yield {request: EventSet(lambda e: e.data["y"] > b)}
+    y_above_b_events = list(filter(lambda e: e.data["y"] > b, x_y_events))
+    yield {request: y_above_b_events}
 
 
 @b_thread
@@ -234,14 +253,16 @@ def initialize_bthreads_list(line_equations, delta_param=0.1, discrete_mode=True
     else:
         b_threads_list.append(x_y_inside_circle_solver())
 
-    if discrete_mode:
-        b_threads_list.append(generate_events_scenario(delta_param))
+    # if discrete_mode:
+    #    b_threads_list.append(generate_events_scenario(delta_param))
 
     return b_threads_list
 
 
 def discrete_event_example(num_edges=3, radius=1, delta_param=0.1):
     global found_solution_discrete
+    global x_y_events
+    generate_x_y_events(x_y_events, delta_param)
     line_equations = create_all_line_equations(n=num_edges, r=radius)
     b_threads_list = initialize_bthreads_list(line_equations, delta_param)
     b_program = BProgram(
@@ -296,6 +317,20 @@ found_solution_solver = False
         print(
             f"{n}\t{execution_time_discrete}\t{delta}\t{found_solution_discrete}\t{execution_time_solver}\t{found_solution_solver}"
         )
+
+
+def plotting_equations():
+
+    # Creating vectors X and Y
+    x = np.linspace(-2, 2, 100)
+    y = x ** 2
+
+    fig = plt.figure(figsize=(10, 5))
+    # Create the plot
+    plt.plot(x, y)
+
+    # Show the plot
+    plt.show()
 
 
 if __name__ == "__main__":
