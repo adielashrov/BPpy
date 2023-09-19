@@ -53,7 +53,6 @@ class BProgram:
         self.variables = None
         self.tickets = []
         self.external_events_queue = []
-        self.found_solution = False
 
     def setup(self):
         """
@@ -147,7 +146,7 @@ class BProgram:
         or until interrupted by the listener. At the start and end of the run, and after each
         event selection, the listener (if provided) is invoked.
         """
-        found_solution = False
+
         if self.listener:
             self.listener.starting(b_program=self)
 
@@ -163,7 +162,7 @@ class BProgram:
             if event is None:
                 break
             if self.listener:
-                self.found_solution = True
+
                 interrupted = self.listener.event_selected(b_program=self, event=event)
 
             self.advance_bthreads(self.tickets,event)
@@ -182,6 +181,3 @@ class BProgram:
             The external event to be enqueued.
         """
         self.external_events_queue.append(event)
-
-    def get_found_solution(self):
-        return self.found_solution
