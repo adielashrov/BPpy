@@ -19,6 +19,7 @@ any_external = EventSet(lambda event: isinstance(event, External) and event.name
 any_event = EventSet(lambda event: isinstance(event, BEvent))
 all_events_except_input_and_output = EventSet(lambda event: isinstance(event, BEvent) and event.name != "input_event" and event.name != "output_event")
 input_event_set = EventSet(lambda event: isinstance(event, BEvent) and event.name == "input_event")
+input_event_proxy_set = EventSet(lambda event: isinstance(event, BEvent) and event.name == "input_event_proxy")
 output_event_set = EventSet(lambda event: isinstance(event, BEvent) and event.name == "output_event")
 
 def demo_taxi_two():
@@ -84,7 +85,7 @@ def sensor():
         # print("sensor->wait for external_input_event_set")
         external_event = yield {waitFor: any_external}
         # print("sensor->received external_input_event: ", external_event)
-        yield {request: BEvent("input_event", {"state": external_event.data['state'], "id": id}),
+        yield {request: BEvent("input_event_proxy", {"state": external_event.data['state'], "id": id}),
                block: any_external}
         id += 1
 
@@ -158,26 +159,25 @@ def forgot_luggage_sensor():
                     yield {waitFor: BEvent("pickup_luggage")}
                     forgot_luggage_state = False
 
-'''
+
+def update_event_destination(event, destination):
+    pass
+
 def override_sensor():
     override_destination = False  # This override and proxy scenario resemble the yield/restore scenarios from Aurora
     current_destination = None
     while True:
-        last_event = yield {waitFor: [BEvent("request_new_destination"),
-                                      BEvent("InputEventProxy")]}
-        if last_event.getType() == "start_new_dest":
-            current_destination = last_event.data["dest"]
-            override_destination = True
-        else:  # event is InputEventProxy
-            if not override_destination:  # pass as-is
-                yield {request: BEvent("InputEvent",
-                                       {"state": getState(last_event)})}
-            else:  # override the current state
-                yield {request: BEvent("InputEvent", {
-                    "state": updateEventDestination(last_event,
-                                                    current_destination)})}
+        last_event = yield {waitFor: input_event_proxy_set}
+        if not override_destination:  # pass as-is
+            state = last_event.data['state']
+            id = last_event.data['id']
+            yield {request: BEvent("input_event",
+                                   {"state": state, "id": id})}
+        else:  # override the current state
+            yield {request: BEvent("InputEvent", {
+                "state": update_event_destination(last_event,
+                                                current_destination)})}
 
-'''
 
 '''The following bthread overrides the navigation to the 
 passenger destination
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     q_table = np.load('11_31_29_08_2023_q_table.npy')
     state_dict = init_state_dict_to_composite_state()
     b_program = BProgram(
-    bthreads = [start_simulation(), sensor(), identify_passenger_pickup(state_dict),
+    bthreads = [start_simulation(), sensor(), override_sensor(), identify_passenger_pickup(state_dict),
                 forgot_luggage_sensor(), odnn(state_dict, q_table), actuator()],
         event_selection_strategy=SimpleEventSelectionStrategy(),
         listener=PrintBProgramRunnerListener(),
