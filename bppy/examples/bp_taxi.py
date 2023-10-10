@@ -20,6 +20,7 @@ any_event = EventSet(lambda event: isinstance(event, BEvent))
 all_events_except_input_and_output = EventSet(lambda event: isinstance(event, BEvent) and event.name != "input_event" and event.name != "output_event")
 input_event_set = EventSet(lambda event: isinstance(event, BEvent) and event.name == "input_event")
 input_event_proxy_set = EventSet(lambda event: isinstance(event, BEvent) and event.name == "input_event_proxy")
+input_event_proxy_set_or_start_new_destination = EventSet(lambda event: isinstance(event, BEvent) and (event.name == "input_event_proxy" or event.name == "start_new_destination"))
 output_event_set = EventSet(lambda event: isinstance(event, BEvent) and event.name == "output_event")
 
 def demo_taxi_two():
@@ -65,12 +66,25 @@ def init_state_dict_to_composite_state():
                     state_dict[gym_state] = composite_state
     return state_dict
 
+def location_to_string(location):
+    if location == 0:
+        return "Red"
+    elif location == 1:
+        return "Green"
+    elif location == 2:
+        return "Yellow"
+    elif location == 3:
+        return "Blue"
+    elif location == 4:
+        return "InTaxi"
 
 @b_thread
-def start_simulation():
+def start_simulation(state_dict):
     global env
     state, info = env.reset()
-    print(f"start_simulation: state: {state}, info: {info}", )
+    taxi_row, taxi_col, passenger_location, original_destination = state_dict[state] # destination
+    print(f"start_simulation: start_passenger_location: "
+          f"{location_to_string(passenger_location)}", )
     external_input_event = External("ex_input_event", {"state": state})
     b_program.enqueue_external_event(external_input_event)
     print("Start simulation: enqueued external_input_event", )
@@ -130,9 +144,8 @@ def identify_passenger_pickup(state_dict):
         output_event = yield {waitFor: output_event_set}
         previous_action = action_to_word(output_event.data['action'])
         input_event = yield {waitFor: input_event_set}
-        state = input_event.data['state']
-        composite_state = state_dict[state]
-        current_passenger_location = composite_state[2]
+        current_passenger_location = extract_passenger_location_from_input_event(input_event,
+                                                                      state_dict)
         # print(f"previous_action: {previous_action}, "
         #       f"current_passenger_location: {current_passenger_location}")
         if previous_action == "Pickup" and current_passenger_location == 4:
@@ -141,6 +154,14 @@ def identify_passenger_pickup(state_dict):
             while passenger_picked_up:
                 yield {waitFor: BEvent("passenger_dropped_off")}
                 passenger_picked_up = False
+
+
+def extract_passenger_location_from_input_event(input_event, state_dict):
+    state = input_event.data['state']
+    composite_state = state_dict[state]
+    passenger_location = composite_state[2]
+    return passenger_location
+
 
 '''The following bthread notifies that the passenger has forgotten her luggage at
  the original passenger location
@@ -160,23 +181,46 @@ def forgot_luggage_sensor():
                     forgot_luggage_state = False
 
 
-def update_event_destination(event, destination):
-    pass
+def forgot_luggage_scenario(state_dict):
+    input_event = yield {waitFor: input_event_set}
+    passenger_original_location = extract_passenger_location_from_input_event(input_event, state_dict)
+    while True:
+        yield {waitFor: BEvent("forgot_luggage")}
+        yield {request: BEvent("start_new_destination", {"dest": passenger_original_location})}
+        yield {waitFor: BEvent("passenger_dropped_off")}
+
+'''This method extracts the state from the input event
+It then converts it to the composite state tuple
+'''
+def extract_state_from_input_event(input_event, state_dict):
+    state = input_event.data['state']
+    composite_state = state_dict[state]
+    return composite_state
+
+
+
+def update_event_destination(input_event, new_destination):
+    taxi_row, taxi_col, passenger_location, original_destination = extract_state_from_input_event(input_event, state_dict)
+    new_gym_state = ((taxi_row * 5 + taxi_col) * 5 + \
+                 passenger_location) * 4 + new_destination
+    return new_gym_state
 
 def override_sensor():
     override_destination = False  # This override and proxy scenario resemble the yield/restore scenarios from Aurora
     current_destination = None
     while True:
-        last_event = yield {waitFor: input_event_proxy_set}
-        if not override_destination:  # pass as-is
-            state = last_event.data['state']
+        last_event = yield {waitFor: input_event_proxy_set_or_start_new_destination}
+        if last_event.name == "start_new_destination":
+            current_destination = last_event.data["dest"]
+            override_destination = True
+        else:  # event is input_event_proxy
+            if not override_destination:  # pass as-is
+                state = last_event.data['state']
+            else:  # override the current state
+                state = update_event_destination(last_event, current_destination)
             id = last_event.data['id']
             yield {request: BEvent("input_event",
                                    {"state": state, "id": id})}
-        else:  # override the current state
-            yield {request: BEvent("InputEvent", {
-                "state": update_event_destination(last_event,
-                                                current_destination)})}
 
 
 '''The following bthread overrides the navigation to the 
@@ -200,8 +244,8 @@ if __name__ == "__main__":
     q_table = np.load('11_31_29_08_2023_q_table.npy')
     state_dict = init_state_dict_to_composite_state()
     b_program = BProgram(
-    bthreads = [start_simulation(), sensor(), override_sensor(), identify_passenger_pickup(state_dict),
-                forgot_luggage_sensor(), odnn(state_dict, q_table), actuator()],
+    bthreads = [start_simulation(state_dict), sensor(), override_sensor(), identify_passenger_pickup(state_dict),
+                forgot_luggage_sensor(), forgot_luggage_scenario(state_dict), odnn(state_dict, q_table), actuator()],
         event_selection_strategy=SimpleEventSelectionStrategy(),
         listener=PrintBProgramRunnerListener(),
     )

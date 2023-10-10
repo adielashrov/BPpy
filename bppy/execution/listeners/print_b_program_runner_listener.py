@@ -28,7 +28,8 @@ class PrintBProgramRunnerListener(BProgramRunnerListener):
         pass
 
     def event_selected(self, b_program, event):
-        print(event)
+        #print(event)
+        pass
 
     def halted(self, b_program):
         pass
