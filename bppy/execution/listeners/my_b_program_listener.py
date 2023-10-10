@@ -1,7 +1,7 @@
 from bppy.execution.listeners.b_program_runner_listener import BProgramRunnerListener
 
 
-class PrintBProgramRunnerListener(BProgramRunnerListener):
+class MyBProgramRunnerListener(BProgramRunnerListener):
     """
     This class implements the :class:`BProgramRunnerListener
     <bppy.execution.listeners.b_program_runner_listener.BProgramRunnerListener>` interface, providing basic print

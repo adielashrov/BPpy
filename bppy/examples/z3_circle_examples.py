@@ -1,5 +1,7 @@
 from math import sqrt
 from bppy import *
+from bppy.execution.listeners import my_b_program_listener
+from bppy.execution.listeners.my_b_program_listener import MyBProgramRunnerListener
 from constraints_generation import *
 import timeit
 
@@ -7,6 +9,16 @@ import timeit
 import matplotlib.pyplot as plt
 import numpy as np
 
+"""
+import sys
+
+path = "C:\\Users\\adiel\\Documents\\Research\\BP_python\\BPpy-fork\\bppy\\"
+print("\n".join(sys.path))
+sys.path.insert(0, path)
+print("change syspath")
+# print the sys.path after it was updated
+print("\n".join(sys.path))
+"""
 random.seed(42)
 x, y = Reals("x y")
 found_solution_discrete = False
@@ -38,8 +50,9 @@ def z3_point_between_triangle_and_circle():
 
 
 def print_line_equations(line_equations):
-    for line_equation in line_equations:
-        print(line_equation)
+    pass
+    # for line_equation in line_equations:
+    # print(line_equation)
 
 
 def check_equations(point, line_equations):
@@ -97,18 +110,23 @@ def check_equation(x, y, line_equation, discrete_mode=True):
 def print_solution(str, event, m, b):
     solution_x = event[x].as_fraction()
     solution_y = event[y].as_fraction()
-    print(f"{str} = {float(solution_x)}, y = {float(solution_y)}")
+    # print(f"{str} = {float(solution_x)}, y = {float(solution_y)}")
 
 
 """
 Solver event selection experiment bThreads
 """
 
+count = 0
+
 
 @b_thread
 def y_above_top_line_solver(m, b):
-    # print(f"y_above_top_line_solver: m={m}, b={b}")
+    global count
     y_above_top_line_solver = And(y > m * x + b)
+    count = count + 1
+    # if count % 1000 == 0:
+    # print(f"y_above_top_line_solver: count={count}")
     yield {request: y_above_top_line_solver}
 
 
@@ -158,14 +176,16 @@ def x_y_inside_circle_solver():
 def find_equation_for_solution_solver(line_equations, x, y):
     # x_y_in_range = And(x >= -1)
     x_y_in_range = And(x >= -1, x <= 1, y >= -1, y <= 1)
+    global found_solution_solver
     last_event = yield {waitFor: true}
+    found_solution_solver = True
     x = last_event[x].as_fraction()
     y = last_event[y].as_fraction()
     for line_equation in line_equations:
         solution = check_equation(x, y, line_equation, discrete_mode=False)
         if solution != "":
-            print(line_equation)
-            print(f"Found solution: {solution}")
+            # print(line_equation)
+            # print(f"Found solution: {solution}")
             break
 
 
@@ -184,7 +204,7 @@ def generate_events_scenario(delta_param):
 
 @b_thread
 def x_y_inside_circle_discrete():
-    x_outside_of_circle = EventSet(lambda e: e.data["x"] ** 2 + e.data["y"] ** 2 >= 1)
+    x_outside_of_circle = EventSet(lambda e: e.data["x"] ** 2 + e.data["y"] ** 2 > 1)
     yield {waitFor: All(), block: x_outside_of_circle}
 
 
@@ -236,14 +256,16 @@ def x_below_x1_discrete(x1):
 
 @b_thread
 def find_equation_for_solution_discrete(line_equations):
+    global found_solution_discrete
     last_event = yield {waitFor: All()}
+    found_solution_discrete = True
     x = last_event.data["x"]
     y = last_event.data["y"]
     for line_equation in line_equations:
         solution = check_equation(x, y, line_equation)
         if solution != "":
-            print(line_equation)
-            print(f"Found solution: {solution}")
+            # print(line_equation)
+            # print(f"Found solution: {solution}")
             break
 
 
@@ -255,19 +277,20 @@ Initialize the solver based example BProgram
 def solver_based_example(num_edges=3, radius=1):
     global found_solution_solver
     line_equations = create_all_line_equations(n=num_edges, r=radius)
-    print_line_equations(line_equations)
+    # print("Finished creating the line_equations")
+    # print_line_equations(line_equations)
     b_threads_list = initialize_bthreads_list(line_equations, discrete_mode=False)
     b_program = BProgram(
         bthreads=b_threads_list,
         event_selection_strategy=SMTEventSelectionStrategy(),
-        listener=PrintBProgramRunnerListener(),
+        listener=MyBProgramRunnerListener(),
     )
     b_program.run()
     # found_solution_solver = b_program.get_found_solution()
     # print(f"Solver based example found solution:{found_solution_solver}")
 
 
-def initialize_bthreads_list(line_equations, delta_param=0.1, discrete_mode=True):
+def initialize_bthreads_list(line_equations, discrete_mode=True):
     b_threads_list = []
 
     if discrete_mode:
@@ -327,10 +350,10 @@ def initialize_bthreads_list(line_equations, delta_param=0.1, discrete_mode=True
                 else:
                     b_threads_list.append(x_below_x1_solver(line_equation.get_x1()))
 
-    # if discrete_mode:
-    #     b_threads_list.append(find_equation_for_solution_discrete(line_equations))
-    # else:
-    #    b_threads_list.append(find_equation_for_solution_solver(line_equations, x, y))
+    if discrete_mode:
+        b_threads_list.append(find_equation_for_solution_discrete(line_equations))
+    else:
+        b_threads_list.append(find_equation_for_solution_solver(line_equations, x, y))
 
     return b_threads_list
 
@@ -345,7 +368,7 @@ def discrete_event_example(num_edges=3, radius=1, delta_param=0.1):
     global x_y_events
     generate_x_y_events(x_y_events, delta_param)
     line_equations = create_all_line_equations(n=num_edges, r=radius)
-    print_line_equations(line_equations)
+    # print_line_equations("line_equations")
     b_threads_list = initialize_bthreads_list(line_equations, delta_param)
     b_program = BProgram(
         bthreads=b_threads_list,
@@ -353,7 +376,6 @@ def discrete_event_example(num_edges=3, radius=1, delta_param=0.1):
         listener=PrintBProgramRunnerListener(),
     )
     b_program.run()
-    # found_solution_discrete = b_program.get_found_solution()
     # print(f"Discrete event example found solution:{found_solution_discrete}")
 
 
@@ -374,8 +396,8 @@ found_solution_solver = False
     print(
         "num_of_edges\texecution_time_discrete\tdelta_param\tdiscrete_solved\texecution_time_solver\tsolver_solved"
     )
-    for n in range(3, 50):
-        delta = 0.1
+    for n in range(3, 10000):
+        delta = 0.9
         c_setup = extend_setup_with_variables(setup, n, 1, delta)
         # print("Started discrete event example")
         execution_time_discrete = timeit.timeit(
@@ -392,6 +414,8 @@ found_solution_solver = False
                 number=1,
             )
 
+        # print("Finished discrete based example")
+
         # print("Started solver based example")
         execution_time_solver = timeit.timeit(
             "solver_based_example(num_edges=n,radius=r)", setup=c_setup, number=1
@@ -399,6 +423,7 @@ found_solution_solver = False
         print(
             f"{n}\t{execution_time_discrete}\t{delta}\t{found_solution_discrete}\t{execution_time_solver}\t{found_solution_solver}"
         )
+        # print("Finished solver based example")
 
 
 def plotting_equations():
@@ -416,6 +441,6 @@ def plotting_equations():
 
 
 if __name__ == "__main__":
-    # discrete_event_example(10000, 1, 0.95)
-    solver_based_example(3, 1)
-# run_experiment()
+    # discrete_event_example(1000, 1, 0.1)
+    # solver_based_example(1000, 1)
+    run_experiment()

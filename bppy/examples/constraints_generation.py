@@ -1,6 +1,8 @@
 # Import math Library
 from math import pi, sin, cos
 
+from z3 import is_and, is_or
+
 
 class Point:
     def __init__(self, x, y):
@@ -77,3 +79,15 @@ def create_all_line_equations(n=3, r=1):
             line_equations.append(Line_Equation(m, b))
 
     return line_equations
+
+
+def count_constraints(expr):
+    if is_and(expr) or is_or(expr):
+        # For AND and OR expressions, recursively count constraints in sub-expressions
+        count = 0
+        for sub_expr in expr.children():
+            count += count_constraints(sub_expr)
+        return count
+    else:
+        # For atomic constraints, return 1
+        return 1
