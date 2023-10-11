@@ -4,21 +4,13 @@ from constraints_generation import *
 import timeit
 import datetime
 import csv
+import random
 
 # Import libraries
 import matplotlib.pyplot as plt
 import numpy as np
+import tracemalloc
 
-"""
-import sys
-
-path = "C:\\Users\\adiel\\Documents\\Research\\BP_python\\BPpy-fork\\bppy\\"
-print("\n".join(sys.path))
-sys.path.insert(0, path)
-print("change syspath")
-# print the sys.path after it was updated
-print("\n".join(sys.path))
-"""
 random.seed(42)
 x, y = Reals("x y")
 found_solution_discrete = False
@@ -28,6 +20,7 @@ x_y_events = []
 
 
 def generate_x_y_events(x_y_events, delta_param):
+    x_y_events.clear()
     x, y = -1.0, -1.0
     while x < 1.0:
         while y < 1.0:
@@ -35,6 +28,7 @@ def generate_x_y_events(x_y_events, delta_param):
             y += delta_param
         y = -1.0
         x += delta_param
+    random.shuffle(x_y_events)
 
 
 def z3_point_between_triangle_and_circle():
@@ -378,7 +372,7 @@ def discrete_event_example(num_edges=3, radius=1, delta_param=0.1):
 def extend_setup_with_variables(setup, n, r, delta):
     setup += "n=" + str(n) + "\n"
     setup += "r=" + str(r) + "\n"
-    setup += "d=" + str(delta) + "\n"
+    setup += "delta=" + str(delta) + "\n"
     return setup
 
 
@@ -386,6 +380,14 @@ def init_statistics_file():
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"statistics_{timestamp}.csv"
     return filename
+
+
+def tracemalloc_stop():
+    snapshot = tracemalloc.take_snapshot()
+    tracemalloc.stop()
+    total_memory = sum(stat.size for stat in snapshot.statistics("filename"))
+    # memory_usage = total_memory / 1024 / 1024
+    return total_memory
 
 
 def run_experiment(file):
@@ -398,9 +400,11 @@ found_solution_solver = False
     header = [
         "num_of_edges",
         "execution_time_discrete",
+        "memory_usage_discrete",
         "delta_param",
         "discrete_solved",
         "execution_time_solver",
+        "memory_usage_solver",
         "solver_solved",
     ]
     writer = csv.writer(csvfile, delimiter=",")
@@ -410,32 +414,42 @@ found_solution_solver = False
         delta = 0.9
         c_setup = extend_setup_with_variables(setup, n, 1, delta)
         # print("Started discrete event example")
+        tracemalloc.start()
         execution_time_discrete = timeit.timeit(
-            "discrete_event_example(num_edges=n,radius=r,delta_param=d)",
+            "discrete_event_example(num_edges=n,radius=r,delta_param=delta)",
             setup=c_setup,
             number=1,
         )
+        memory_usage_discrete = tracemalloc_stop()
+
         while not found_solution_discrete:
             delta = delta / 10
             c_setup = extend_setup_with_variables(setup, n, 1, delta)
+            tracemalloc.start()
             execution_time_discrete = timeit.timeit(
-                "discrete_event_example(num_edges=n,radius=r,delta_param=d)",
+                "discrete_event_example(num_edges=n,radius=r,delta_param=delta)",
                 setup=c_setup,
                 number=1,
             )
+            memory_usage_discrete = tracemalloc_stop()
 
         # print("Finished discrete based example")
 
         # print("Started solver based example")
+        tracemalloc.start()
         execution_time_solver = timeit.timeit(
             "solver_based_example(num_edges=n,radius=r)", setup=c_setup, number=1
         )
+        memory_usage_solver = tracemalloc_stop()
+
         row = [
             n,
             execution_time_discrete,
+            memory_usage_discrete,
             delta,
             found_solution_discrete,
             execution_time_solver,
+            memory_usage_solver,
             found_solution_solver,
         ]
         writer.writerow(row)
