@@ -78,6 +78,27 @@ def location_to_string(location):
     elif location == 4:
         return "InTaxi"
 
+def extract_passenger_location_from_input_event(input_event, state_dict):
+    state = input_event.data['state']
+    composite_state = state_dict[state]
+    passenger_location = composite_state[2]
+    return passenger_location
+
+'''This method extracts the state from the input event
+It then converts it to the composite state tuple
+'''
+def extract_state_from_input_event(input_event, state_dict):
+    state = input_event.data['state']
+    composite_state = state_dict[state]
+    return composite_state
+
+
+def update_event_destination(input_event, new_destination):
+    taxi_row, taxi_col, passenger_location, original_destination = extract_state_from_input_event(input_event, state_dict)
+    new_gym_state = ((taxi_row * 5 + taxi_col) * 5 + \
+                 passenger_location) * 4 + new_destination
+    return new_gym_state
+
 @b_thread
 def start_simulation(state_dict):
     global env
@@ -103,6 +124,7 @@ def sensor():
                block: any_external}
         id += 1
 
+@b_thread
 def odnn(state_dict, q_table):
     while True:
         # print("odnn->wait for input_event")
@@ -138,6 +160,7 @@ def actuator():
 
 
 '''The following scenario identifies the passenger was picked up by the taxi'''
+@b_thread
 def identify_passenger_pickup(state_dict):
     while True:
         passenger_picked_up = False
@@ -156,17 +179,11 @@ def identify_passenger_pickup(state_dict):
                 passenger_picked_up = False
 
 
-def extract_passenger_location_from_input_event(input_event, state_dict):
-    state = input_event.data['state']
-    composite_state = state_dict[state]
-    passenger_location = composite_state[2]
-    return passenger_location
-
-
 '''The following bthread notifies that the passenger has forgotten her luggage at
  the original passenger location
  Precondition: the passenger was picked up by the taxi
  '''
+@b_thread
 def forgot_luggage_sensor():
     forgot_luggage_state = False
     while True:
@@ -181,6 +198,7 @@ def forgot_luggage_sensor():
                     forgot_luggage_state = False
 
 
+@b_thread
 def forgot_luggage_scenario(state_dict):
     input_event = yield {waitFor: input_event_set}
     passenger_original_location = extract_passenger_location_from_input_event(input_event, state_dict)
@@ -189,22 +207,8 @@ def forgot_luggage_scenario(state_dict):
         yield {request: BEvent("start_new_destination", {"dest": passenger_original_location})}
         yield {waitFor: BEvent("passenger_dropped_off")}
 
-'''This method extracts the state from the input event
-It then converts it to the composite state tuple
-'''
-def extract_state_from_input_event(input_event, state_dict):
-    state = input_event.data['state']
-    composite_state = state_dict[state]
-    return composite_state
 
-
-
-def update_event_destination(input_event, new_destination):
-    taxi_row, taxi_col, passenger_location, original_destination = extract_state_from_input_event(input_event, state_dict)
-    new_gym_state = ((taxi_row * 5 + taxi_col) * 5 + \
-                 passenger_location) * 4 + new_destination
-    return new_gym_state
-
+@b_thread
 def override_sensor():
     override_destination = False  # This override and proxy scenario resemble the yield/restore scenarios from Aurora
     current_destination = None
