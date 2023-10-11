@@ -1,9 +1,9 @@
 from math import sqrt
 from bppy import *
-from bppy.execution.listeners import my_b_program_listener
-from bppy.execution.listeners.my_b_program_listener import MyBProgramRunnerListener
 from constraints_generation import *
 import timeit
+import datetime
+import csv
 
 # Import libraries
 import matplotlib.pyplot as plt
@@ -281,9 +281,7 @@ def solver_based_example(num_edges=3, radius=1):
     # print_line_equations(line_equations)
     b_threads_list = initialize_bthreads_list(line_equations, discrete_mode=False)
     b_program = BProgram(
-        bthreads=b_threads_list,
-        event_selection_strategy=SMTEventSelectionStrategy(),
-        listener=MyBProgramRunnerListener(),
+        bthreads=b_threads_list, event_selection_strategy=SMTEventSelectionStrategy()
     )
     b_program.run()
     # found_solution_solver = b_program.get_found_solution()
@@ -371,9 +369,7 @@ def discrete_event_example(num_edges=3, radius=1, delta_param=0.1):
     # print_line_equations("line_equations")
     b_threads_list = initialize_bthreads_list(line_equations, delta_param)
     b_program = BProgram(
-        bthreads=b_threads_list,
-        event_selection_strategy=SimpleEventSelectionStrategy(),
-        listener=PrintBProgramRunnerListener(),
+        bthreads=b_threads_list, event_selection_strategy=SimpleEventSelectionStrategy()
     )
     b_program.run()
     # print(f"Discrete event example found solution:{found_solution_discrete}")
@@ -386,17 +382,31 @@ def extend_setup_with_variables(setup, n, r, delta):
     return setup
 
 
-def run_experiment():
+def init_statistics_file():
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    filename = f"statistics_{timestamp}.csv"
+    return filename
+
+
+def run_experiment(file):
     global delta
     setup = """
 from __main__ import solver_based_example, discrete_event_example
 found_solution_discrete = False
 found_solution_solver = False
 """
-    print(
-        "num_of_edges\texecution_time_discrete\tdelta_param\tdiscrete_solved\texecution_time_solver\tsolver_solved"
-    )
-    for n in range(3, 10000):
+    header = [
+        "num_of_edges",
+        "execution_time_discrete",
+        "delta_param",
+        "discrete_solved",
+        "execution_time_solver",
+        "solver_solved",
+    ]
+    writer = csv.writer(csvfile, delimiter=",")
+    writer.writerow(header)
+
+    for n in range(3, 50):
         delta = 0.9
         c_setup = extend_setup_with_variables(setup, n, 1, delta)
         # print("Started discrete event example")
@@ -420,9 +430,15 @@ found_solution_solver = False
         execution_time_solver = timeit.timeit(
             "solver_based_example(num_edges=n,radius=r)", setup=c_setup, number=1
         )
-        print(
-            f"{n}\t{execution_time_discrete}\t{delta}\t{found_solution_discrete}\t{execution_time_solver}\t{found_solution_solver}"
-        )
+        row = [
+            n,
+            execution_time_discrete,
+            delta,
+            found_solution_discrete,
+            execution_time_solver,
+            found_solution_solver,
+        ]
+        writer.writerow(row)
         # print("Finished solver based example")
 
 
@@ -443,4 +459,11 @@ def plotting_equations():
 if __name__ == "__main__":
     # discrete_event_example(1000, 1, 0.1)
     # solver_based_example(1000, 1)
-    run_experiment()
+    try:
+        with open(init_statistics_file(), mode="w", newline="") as csvfile:
+            run_experiment(csvfile)
+    except KeyboardInterrupt:
+        # this code handles keyboard interrupt
+        print("Keyboard interrupt")
+    except IOError as e:
+        print(f"An error occurred: {e}")
