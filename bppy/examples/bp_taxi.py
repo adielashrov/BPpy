@@ -4,9 +4,13 @@ import gymnasium as gym
 import numpy as np
 from time import sleep
 from taxi_helper import *
+import random
+import time
 
-# Setup a random seed
-np.random.seed(0)
+# Set up the random seed
+gym_seed = 123
+random.seed(gym_seed)
+np.random.seed(gym_seed)
 
 # Global variables
 env = gym.make("Taxi-v3", render_mode="human")
@@ -15,7 +19,7 @@ env = gym.make("Taxi-v3", render_mode="human")
 class External(BEvent):
     pass
 
-any_external = EventSet(lambda event: isinstance(event, External) and event.name == "ex_input_event")
+ex_input_event_set = EventSet(lambda event: isinstance(event, External) and event.name == "ex_input_event")
 any_event = EventSet(lambda event: isinstance(event, BEvent))
 all_events_except_input_and_output = EventSet(lambda event: isinstance(event, BEvent) and event.name != "input_event" and event.name != "output_event")
 input_event_set = EventSet(lambda event: isinstance(event, BEvent) and event.name == "input_event")
@@ -101,14 +105,15 @@ def update_event_destination(input_event, new_destination):
 
 @b_thread
 def start_simulation(state_dict):
+    global gym_seed
     global env
-    state, info = env.reset()
+    state, info = env.reset(seed=gym_seed)
     taxi_row, taxi_col, passenger_location, original_destination = state_dict[state] # destination
     print(f"start_simulation: start_passenger_location: "
           f"{location_to_string(passenger_location)}", )
     external_input_event = External("ex_input_event", {"state": state})
     b_program.enqueue_external_event(external_input_event)
-    print("Start simulation: enqueued external_input_event", )
+    print("Start simulation: enqueued ex_input_event_set", )
     while True:
         yield {waitFor: All()}
 
@@ -118,10 +123,10 @@ def sensor():
     id = 0
     while True:
         # print("sensor->wait for external_input_event_set")
-        external_event = yield {waitFor: any_external}
-        # print("sensor->received external_input_event: ", external_event)
+        external_event = yield {waitFor: ex_input_event_set}
+        # print("sensor->received ex_input_event_set: ", external_event)
         yield {request: BEvent("input_event_proxy", {"state": external_event.data['state'], "id": id}),
-               block: any_external}
+               block: ex_input_event_set}
         id += 1
 
 @b_thread
@@ -147,14 +152,18 @@ def actuator():
         output_event = yield {waitFor: output_event_set}
         action = output_event.data['action']
         # print("actuator->received action: ", action_to_word(action))
+        time.sleep(0.5)
         next_state, reward, terminated, truncated, info = env.step(action)
         # print("actuator->state: ", next_state)
         if terminated:
             print("actuator->terminated episode")
+            output_event = yield {waitFor: All()}
+            '''
             state, info = env.reset()
             print(f"actuator: initial state: {state}, info: {info}", )
-            external_input_event = External("ex_input_event", {"state": state})
-            b_program.enqueue_external_event(external_input_event)
+            ex_input_event_set = External("ex_input_event", {"state": state})
+            b_program.enqueue_external_event(ex_input_event_set)
+            '''
         else:
             b_program.enqueue_external_event(External("ex_input_event", {"state": next_state}))
 
@@ -163,7 +172,6 @@ def actuator():
 @b_thread
 def identify_passenger_pickup(state_dict):
     while True:
-        passenger_picked_up = False
         output_event = yield {waitFor: output_event_set}
         previous_action = action_to_word(output_event.data['action'])
         input_event = yield {waitFor: input_event_set}
@@ -178,6 +186,26 @@ def identify_passenger_pickup(state_dict):
                 yield {waitFor: BEvent("passenger_dropped_off")}
                 passenger_picked_up = False
 
+'''Added requiremnet to support the forgot luggage scenario
+identify_passenger_pickup is now a b-thread'''
+
+@b_thread
+def identify_passenger_dropoff(state_dict):
+    while True:
+        output_event = yield {waitFor: output_event_set}
+        previous_action = action_to_word(output_event.data['action'])
+        input_event = yield {waitFor: input_event_set}
+        current_passenger_location = extract_passenger_location_from_input_event(input_event,
+                                                                      state_dict)
+        if previous_action == "Dropoff" and current_passenger_location != 4:
+            print(f"previous_action: {previous_action}, "
+                   f"current_passenger_location: {current_passenger_location}")
+            passenger_dropped_off = True
+            print("identify_passenger_dropoff request: passenger_dropped_off")
+            yield {request: BEvent("passenger_dropped_off")}
+            while passenger_dropped_off:
+                yield {waitFor: BEvent("passenger_picked_up")}
+                passenger_dropped_off = False
 
 '''The following bthread notifies that the passenger has forgotten her luggage at
  the original passenger location
@@ -185,32 +213,37 @@ def identify_passenger_pickup(state_dict):
  '''
 @b_thread
 def forgot_luggage_sensor():
-    forgot_luggage_state = False
+    forgot_luggage_once = False
     while True:
         yield {waitFor: BEvent("passenger_picked_up")}
-        while not forgot_luggage_state:
+        while not forgot_luggage_once:
             '''draw number in random 0.1'''
-            if np.random.rand() < 0.1:
-                forgot_luggage_state = True
+            yield { waitFor: output_event_set }
+            print("forgot_luggage_sensor notified: output_event")
+            if np.random.rand() < 0.5:
+                forgot_luggage_once = True
                 yield {request: BEvent("forgot_luggage") }
-                while forgot_luggage_state:
-                    yield {waitFor: BEvent("pickup_luggage")}
-                    forgot_luggage_state = False
-
+                while forgot_luggage_once:
+                    yield {waitFor: BEvent("passenger_picked_up_luggage")}
+                    print("forgot_luggage_sensor notified: passenger_picked_up_luggage")
+                    break
 
 @b_thread
 def forgot_luggage_scenario(state_dict):
     input_event = yield {waitFor: input_event_set}
     passenger_original_location = extract_passenger_location_from_input_event(input_event, state_dict)
+    passenger_original_destination = extract_state_from_input_event(input_event, state_dict)[3]
     while True:
         yield {waitFor: BEvent("forgot_luggage")}
         yield {request: BEvent("start_new_destination", {"dest": passenger_original_location})}
         yield {waitFor: BEvent("passenger_dropped_off")}
+        yield {request: BEvent("passenger_picked_up_luggage")}
+        yield {request: BEvent("start_new_destination", {"dest": passenger_original_destination})}
 
-
+ # This override and proxy scenario resemble the yield/restore scenarios from Aurora
 @b_thread
 def override_sensor():
-    override_destination = False  # This override and proxy scenario resemble the yield/restore scenarios from Aurora
+    override_destination = False
     current_destination = None
     while True:
         last_event = yield {waitFor: input_event_proxy_set_or_start_new_destination}
@@ -249,7 +282,8 @@ if __name__ == "__main__":
     state_dict = init_state_dict_to_composite_state()
     b_program = BProgram(
     bthreads = [start_simulation(state_dict), sensor(), override_sensor(), identify_passenger_pickup(state_dict),
-                forgot_luggage_sensor(), forgot_luggage_scenario(state_dict), odnn(state_dict, q_table), actuator()],
+                identify_passenger_dropoff(state_dict),forgot_luggage_sensor(),
+                forgot_luggage_scenario(state_dict), odnn(state_dict, q_table), actuator()],
         event_selection_strategy=SimpleEventSelectionStrategy(),
         listener=PrintBProgramRunnerListener(),
     )
