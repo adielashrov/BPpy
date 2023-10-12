@@ -61,14 +61,17 @@ def is_almost_zero(value, epsilon=1e-9):
     return abs(value) < epsilon
 
 
-def create_all_line_equations(n=3, r=1):
+def create_all_line_equations(n=3, r=1, single_equation=False):
     points = []
     line_equations = []
     step_size = 2 * pi / n
     for i in range(n):
         points.append(Point(r * cos(i * step_size), r * sin(i * step_size)))
 
-    for j in range(n):
+    # if we want to create a single equation, or a set of equations
+    number_of_points = 1 if single_equation else n
+
+    for j in range(number_of_points):
         next_index = (j + 1) % n
         diff_x = points[next_index].get_x() - points[j].get_x()
         if is_almost_zero(diff_x):

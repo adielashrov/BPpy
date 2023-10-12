@@ -15,11 +15,13 @@ random.seed(42)
 x, y = Reals("x y")
 found_solution_discrete = False
 found_solution_solver = False
-
+number_of_discrete_events = 0
+number_of_equations = 0
 x_y_events = []
 
 
 def generate_x_y_events(x_y_events, delta_param):
+    number_of_discrete_events = 0
     x_y_events.clear()
     x, y = -1.0, -1.0
     while x < 1.0:
@@ -29,6 +31,7 @@ def generate_x_y_events(x_y_events, delta_param):
         y = -1.0
         x += delta_param
     random.shuffle(x_y_events)
+    return len(x_y_events)
 
 
 def z3_point_between_triangle_and_circle():
@@ -175,12 +178,14 @@ def find_equation_for_solution_solver(line_equations, x, y):
     found_solution_solver = True
     x = last_event[x].as_fraction()
     y = last_event[y].as_fraction()
+    """ This code segment finds the equation for the found solution
     for line_equation in line_equations:
         solution = check_equation(x, y, line_equation, discrete_mode=False)
         if solution != "":
             # print(line_equation)
             # print(f"Found solution: {solution}")
             break
+    """
 
 
 @b_thread
@@ -255,12 +260,15 @@ def find_equation_for_solution_discrete(line_equations):
     found_solution_discrete = True
     x = last_event.data["x"]
     y = last_event.data["y"]
+    """
+    This code segment finds the equation that matchs the solution
     for line_equation in line_equations:
         solution = check_equation(x, y, line_equation)
         if solution != "":
             # print(line_equation)
             # print(f"Found solution: {solution}")
             break
+    """
 
 
 """
@@ -268,9 +276,11 @@ Initialize the solver based example BProgram
 """
 
 
-def solver_based_example(num_edges=3, radius=1):
+def solver_based_example(num_edges=3, radius=1, single_equation=False):
     global found_solution_solver
-    line_equations = create_all_line_equations(n=num_edges, r=radius)
+    line_equations = create_all_line_equations(
+        n=num_edges, r=radius, single_equation=single_equation
+    )
     # print("Finished creating the line_equations")
     # print_line_equations(line_equations)
     b_threads_list = initialize_bthreads_list(line_equations, discrete_mode=False)
@@ -355,11 +365,18 @@ Initialize the discrete based example BProgram
 """
 
 
-def discrete_event_example(num_edges=3, radius=1, delta_param=0.1):
+def discrete_event_example(
+    num_edges=3, radius=1, delta_param=0.1, single_equation=False
+):
     global found_solution_discrete
     global x_y_events
-    generate_x_y_events(x_y_events, delta_param)
-    line_equations = create_all_line_equations(n=num_edges, r=radius)
+    global number_of_discrete_events
+    global number_of_equations
+    number_of_discrete_events = generate_x_y_events(x_y_events, delta_param)
+    line_equations = create_all_line_equations(
+        n=num_edges, r=radius, single_equation=single_equation
+    )
+    number_of_equations = len(line_equations)
     # print_line_equations("line_equations")
     b_threads_list = initialize_bthreads_list(line_equations, delta_param)
     b_program = BProgram(
@@ -369,10 +386,11 @@ def discrete_event_example(num_edges=3, radius=1, delta_param=0.1):
     # print(f"Discrete event example found solution:{found_solution_discrete}")
 
 
-def extend_setup_with_variables(setup, n, r, delta):
+def extend_setup_with_variables(setup, n, r, delta, single_equation):
     setup += "n=" + str(n) + "\n"
     setup += "r=" + str(r) + "\n"
     setup += "delta=" + str(delta) + "\n"
+    setup += "single_equation=" + str(single_equation) + "\n"
     return setup
 
 
@@ -390,18 +408,22 @@ def tracemalloc_stop():
     return total_memory
 
 
-def run_experiment(file):
+def run_experiment(csvfile, single_equation=False):
     global delta
     setup = """
 from __main__ import solver_based_example, discrete_event_example
 found_solution_discrete = False
 found_solution_solver = False
+number_of_discrete_events = 0
+number_of_equations = 0
 """
     header = [
         "num_of_edges",
+        "num_of_equations",
+        "delta_param",
+        "number_of_events",
         "execution_time_discrete",
         "memory_usage_discrete",
-        "delta_param",
         "discrete_solved",
         "execution_time_solver",
         "memory_usage_solver",
@@ -409,14 +431,15 @@ found_solution_solver = False
     ]
     writer = csv.writer(csvfile, delimiter=",")
     writer.writerow(header)
+    print(header)
 
-    for n in range(3, 50):
-        delta = 0.9
-        c_setup = extend_setup_with_variables(setup, n, 1, delta)
+    for n in range(3, 500):
+        delta = 1.0
+        c_setup = extend_setup_with_variables(setup, n, 1, delta, single_equation)
         # print("Started discrete event example")
         tracemalloc.start()
         execution_time_discrete = timeit.timeit(
-            "discrete_event_example(num_edges=n,radius=r,delta_param=delta)",
+            "discrete_event_example(num_edges=n,radius=r,delta_param=delta,single_equation=single_equation)",
             setup=c_setup,
             number=1,
         )
@@ -424,10 +447,10 @@ found_solution_solver = False
 
         while not found_solution_discrete:
             delta = delta / 10
-            c_setup = extend_setup_with_variables(setup, n, 1, delta)
+            c_setup = extend_setup_with_variables(setup, n, 1, delta, single_equation)
             tracemalloc.start()
             execution_time_discrete = timeit.timeit(
-                "discrete_event_example(num_edges=n,radius=r,delta_param=delta)",
+                "discrete_event_example(num_edges=n,radius=r,delta_param=delta,single_equation=single_equation)",
                 setup=c_setup,
                 number=1,
             )
@@ -438,21 +461,26 @@ found_solution_solver = False
         # print("Started solver based example")
         tracemalloc.start()
         execution_time_solver = timeit.timeit(
-            "solver_based_example(num_edges=n,radius=r)", setup=c_setup, number=1
+            "solver_based_example(num_edges=n,radius=r,single_equation=single_equation)",
+            setup=c_setup,
+            number=1,
         )
         memory_usage_solver = tracemalloc_stop()
 
         row = [
             n,
+            number_of_equations,
+            delta,
+            number_of_discrete_events,
             execution_time_discrete,
             memory_usage_discrete,
-            delta,
             found_solution_discrete,
             execution_time_solver,
             memory_usage_solver,
             found_solution_solver,
         ]
         writer.writerow(row)
+        print(row)
         # print("Finished solver based example")
 
 
@@ -475,7 +503,7 @@ if __name__ == "__main__":
     # solver_based_example(1000, 1)
     try:
         with open(init_statistics_file(), mode="w", newline="") as csvfile:
-            run_experiment(csvfile)
+            run_experiment(csvfile, single_equation=True)
     except KeyboardInterrupt:
         # this code handles keyboard interrupt
         print("Keyboard interrupt")
