@@ -54,7 +54,8 @@ def create_line_equation(n=3, r=1):
     # calculate the y-intercept of the line
     b = y_1 - m * x_1
     # return the slope and y-intercept
-    return m, b
+    line_equation = Line_Equation(m, b)
+    return [line_equation]
 
 
 def is_almost_zero(value, epsilon=1e-9):
@@ -69,7 +70,7 @@ def create_all_line_equations(n=3, r=1, single_equation=False):
         points.append(Point(r * cos(i * step_size), r * sin(i * step_size)))
 
     # if we want to create a single equation, or a set of equations
-    number_of_points = 1 if single_equation else n
+    number_of_points = 1 if single_equation else len(points)
 
     for j in range(number_of_points):
         next_index = (j + 1) % n

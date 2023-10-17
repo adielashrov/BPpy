@@ -47,9 +47,8 @@ def z3_point_between_triangle_and_circle():
 
 
 def print_line_equations(line_equations):
-    pass
-    # for line_equation in line_equations:
-    # print(line_equation)
+    for line_equation in line_equations:
+        print(line_equation)
 
 
 def check_equations(point, line_equations):
@@ -373,11 +372,13 @@ def discrete_event_example(
     global number_of_discrete_events
     global number_of_equations
     number_of_discrete_events = generate_x_y_events(x_y_events, delta_param)
-    line_equations = create_all_line_equations(
-        n=num_edges, r=radius, single_equation=single_equation
-    )
+    line_equations = create_line_equation(n=num_edges, r=radius)
+    # line_equations = create_all_line_equations(
+    #    n=num_edges, r=radius, single_equation=True
+    # )
     number_of_equations = len(line_equations)
-    # print_line_equations("line_equations")
+    # print("number_of_equations", number_of_equations)
+    # print_line_equations(line_equations)
     b_threads_list = initialize_bthreads_list(line_equations, delta_param)
     b_program = BProgram(
         bthreads=b_threads_list, event_selection_strategy=SimpleEventSelectionStrategy()
@@ -408,7 +409,7 @@ def tracemalloc_stop():
     return total_memory
 
 
-def run_experiment(csvfile, single_equation=False):
+def run_experiment(csvfile, start_n, end_n, delta_param, single_equation=False):
     global delta
     setup = """
 from __main__ import solver_based_example, discrete_event_example
@@ -433,8 +434,8 @@ number_of_equations = 0
     writer.writerow(header)
     print(header)
 
-    for n in range(3, 500):
-        delta = 1.0
+    for n in range(start_n, end_n):
+        delta = delta_param
         c_setup = extend_setup_with_variables(setup, n, 1, delta, single_equation)
         # print("Started discrete event example")
         tracemalloc.start()
@@ -498,12 +499,42 @@ def plotting_equations():
     plt.show()
 
 
+# the following method parses the command line arguments
+# first argument - n_0 - start number of edges
+# second argument - n_m - Max number of edges
+# third argument - delta - the delta parameter
+# fourth argument - single_equation - boolean value that indicates whether to use a single equation or multiple equations
+def parse_arguments():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-n_0", "--start_n", type=int, default=3, help="start number of edges"
+    )
+    parser.add_argument(
+        "-n_m", "--end_n", type=int, default=50, help="Max number of edges"
+    )
+    parser.add_argument(
+        "-d", "--delta_param", type=float, default=1.0, help="delta parameter"
+    )
+    parser.add_argument(
+        "-s",
+        "--single_equation",
+        action="store_true",
+        default=False,
+        help="single equation or multiple equations",
+    )
+    args = parser.parse_args()
+    return args.start_n, args.end_n, args.delta_param, args.single_equation
+
+
 if __name__ == "__main__":
     # discrete_event_example(1000, 1, 0.1)
     # solver_based_example(1000, 1)
     try:
         with open(init_statistics_file(), mode="w", newline="") as csvfile:
-            run_experiment(csvfile, single_equation=True)
+            start_n, end_n, delta_param, single_equation = parse_arguments()
+            run_experiment(csvfile, start_n, end_n, delta_param, single_equation)
     except KeyboardInterrupt:
         # this code handles keyboard interrupt
         print("Keyboard interrupt")
